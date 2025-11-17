@@ -1,0 +1,513 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Virtual Animal & Species Explorer</title>
+
+  <!-- model-viewer for optional 3D models -->
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  <style>
+    :root{
+      --bg: #f5f8fa;
+      --card: #ffffff;
+      --muted: #6b7785;
+      --accent: #2b9ed8;
+      --glass: rgba(255,255,255,0.6);
+      --radius: 14px;
+      --max-width: 1150px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,#eef6fb 0%,var(--bg) 100%);
+      color: #1f2d3d;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    .container{
+      max-width: var(--max-width);
+      margin: 36px auto;
+      padding: 24px;
+    }
+
+    header{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+    }
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .logo{
+      width:56px;
+      height:56px;
+      border-radius:12px;
+      background:linear-gradient(135deg,var(--accent),#1d6fa8);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-weight:700;
+      box-shadow:0 6px 18px rgba(43,158,216,0.18);
+      font-size:20px;
+    }
+    h1{font-size:20px;margin:0}
+    nav a{
+      margin-left:10px;
+      color:var(--muted);
+      text-decoration:none;
+      font-weight:600;
+      transition:color .18s;
+    }
+    nav a:hover{color:var(--accent)}
+
+    /* search bar */
+    .controls{
+      display:flex;
+      gap:12px;
+      margin: 16px 0 24px 0;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .search{
+      background:var(--card);
+      border-radius:10px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      box-shadow:0 6px 20px rgba(27,40,50,0.06);
+      flex:1 1 320px;
+    }
+    .search input{
+      border:0;
+      outline:0;
+      font-size:15px;
+      background:transparent;
+      width:100%;
+      padding:6px 0;
+    }
+    .select, .btn{
+      background:var(--card);
+      border-radius:10px;
+      padding:10px 14px;
+      border:0;
+      cursor:pointer;
+      box-shadow:0 6px 20px rgba(27,40,50,0.06);
+      font-weight:600;
+    }
+    .btn.primary{
+      background: linear-gradient(90deg,var(--accent),#176ea8);
+      color:#fff;
+    }
+
+    /* grid of cards */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:18px;
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      box-shadow: 0 8px 30px rgba(13,30,46,0.06);
+      transition: transform .18s, box-shadow .18s;
+    }
+    .card:hover{ transform:translateY(-6px); box-shadow:0 18px 40px rgba(13,30,46,0.09); }
+
+    .media{
+      height:190px;
+      background:linear-gradient(180deg,#e6f4fb, #ffffff);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .media img{ width:100%; height:100%; object-fit:cover; display:block; }
+    /* If you use model-viewer, it's placed inside .media */
+
+    .card-body{
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .card h3{ margin:0; font-size:18px; }
+    .meta{ color:var(--muted); font-size:13px; }
+    .tags{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
+    .tag{ font-size:12px; padding:6px 8px; background:#f2f6fb; color:#2b627e; border-radius:999px; }
+
+    .actions{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .link-btn{ border:0; background:transparent; color:var(--accent); cursor:pointer; font-weight:700; padding:6px 8px; }
+
+    /* modal */
+    .modal-backdrop{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(10,20,30,0.48); z-index:60;
+      padding:20px;
+    }
+    .modal{
+      width:100%; max-width:980px; background:var(--card); border-radius:14px; overflow:auto; max-height:90vh; box-shadow:0 24px 70px rgba(8,24,40,0.5);
+    }
+    .modal .modal-inner{ display:grid; grid-template-columns: 1fr 360px; gap:18px; padding:18px; }
+    .modal img{ width:100%; border-radius:10px; height:auto; display:block; object-fit:cover; }
+    .modal h2{ margin:0 0 8px 0 }
+    .modal p{ color:var(--muted); line-height:1.5; }
+    .close{ position:absolute; right:14px; top:10px; background:transparent; border:0; font-size:20px; cursor:pointer; color:var(--muted) }
+
+    /* responsive */
+    @media (max-width:1000px){
+      .grid{ grid-template-columns: repeat(2,1fr); }
+      .modal .modal-inner{ grid-template-columns: 1fr 300px; }
+    }
+    @media (max-width:660px){
+      header{flex-direction:column; align-items:flex-start; gap:12px;}
+      .grid{ grid-template-columns: 1fr; }
+      .modal .modal-inner{ grid-template-columns:1fr; }
+    }
+
+    footer{
+      text-align:center;
+      color:var(--muted);
+      padding:26px 0 40px 0;
+      font-size:14px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">AS</div>
+        <div>
+          <h1>Virtual Animal & Species Explorer</h1>
+          <div style="color:var(--muted); font-size:13px">Interactive guide — images, habitats and quick facts</div>
+        </div>
+      </div>
+
+      <nav>
+        <a href="#animals">Animals</a>
+        <a href="#birds">Birds</a>
+        <a href="#aquatic">Aquatic</a>
+        <a href="#reptiles">Reptiles</a>
+      </nav>
+    </header>
+
+    <div class="controls" aria-label="Search and filter controls">
+      <div class="search" role="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="opacity:0.7">
+          <path d="M21 21l-4.35-4.35" stroke="#6b7785" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="11" cy="11" r="6" stroke="#6b7785" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <input id="searchInput" type="text" placeholder="Search species (name, habitat or diet)..." aria-label="Search species">
+      </div>
+
+      <select id="categoryFilter" class="select" aria-label="Filter by category">
+        <option value="all">All categories</option>
+        <option value="mammal">Mammals</option>
+        <option value="bird">Birds</option>
+        <option value="reptile">Reptiles</option>
+        <option value="aquatic">Aquatic</option>
+      </select>
+
+      <button class="btn primary" id="resetBtn">Reset</button>
+    </div>
+
+    <main>
+      <section id="speciesGrid" class="grid" aria-live="polite">
+        <!-- Cards will be injected by JS -->
+      </section>
+    </main>
+
+    <footer>
+      © <span id="year"></span> Virtual Animal & Species Explorer — Made with ❤️
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
+    <div class="modal" role="document" aria-modal="true">
+      <button class="close" id="modalClose" aria-label="Close">&times;</button>
+      <div class="modal-inner">
+        <div id="modalMedia"></div>
+        <div id="modalContent" style="padding:8px 0;">
+          <h2 id="modalTitle"></h2>
+          <p id="modalScientific" class="meta"></p>
+          <p id="modalHabitat"></p>
+          <p id="modalDiet"></p>
+          <p id="modalDesc"></p>
+          <div style="margin-top:12px;">
+            <strong>Tags: </strong><span id="modalTags"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Data: add or edit animals here
+    const species = [
+      {
+        id: 'lion',
+        name: 'Lion',
+        scientific: 'Panthera leo',
+        category: 'mammal',
+        habitat: 'African grasslands, savannas',
+        diet: 'Carnivore',
+        img: 'c:\Users\akrad\OneDrive\Documents\lion.jpeg',           // put your image at images/lion.jpg
+        model: 'models/lion.glb',         // optional 3D model path
+        description: 'Lions are social cats that live in groups called prides. Males are known for their impressive mane.'
+      },
+      {
+        id: 'elephant',
+        name: 'African Elephant',
+        scientific: 'Loxodonta africana',
+        category: 'mammal',
+        habitat: 'Savannas, forests',
+        diet: 'Herbivore',
+        img: 'images/elephant.jpg',
+        model: 'models/elephant.glb',
+        description: 'Largest land animals, known for strong family bonds, memory and intelligence.'
+      },
+      {
+        id: 'tiger',
+        name: 'Tiger',
+        scientific: 'Panthera tigris',
+        category: 'mammal',
+        habitat: 'Forests & wetlands',
+        diet: 'Carnivore',
+        img: 'images/tiger.jpg',
+        model: 'models/tiger.glb',
+        description: 'Powerful solitary hunters with distinctive vertical stripes unique to each animal.'
+      },
+      {
+        id: 'giraffe',
+        name: 'Giraffe',
+        scientific: 'Giraffa camelopardalis',
+        category: 'mammal',
+        habitat: 'African savannas',
+        diet: 'Herbivore',
+        img: 'images/giraffe.jpg',
+        model: 'models/giraffe.glb',
+        description: 'Tallest land animals; long necks allow browsing high branches.'
+      },
+      {
+        id: 'peacock',
+        name: 'Peacock',
+        scientific: 'Pavo cristatus',
+        category: 'bird',
+        habitat: 'Forests, farmlands',
+        diet: 'Omnivore (grains, insects)',
+        img: 'images/peacock.jpg',
+        description: 'Male peacocks have dramatic tail feathers used in displays to attract mates.'
+      },
+      {
+        id: 'eagle',
+        name: 'Eagle',
+        scientific: 'Aquila sp.',
+        category: 'bird',
+        habitat: 'Mountains, forests',
+        diet: 'Carnivore',
+        img: 'images/eagle.jpg',
+        description: 'Birds of prey with exceptional eyesight and powerful talons.'
+      },
+      {
+        id: 'dolphin',
+        name: 'Dolphin',
+        scientific: 'Delphinidae',
+        category: 'aquatic',
+        habitat: 'Oceans and coastal waters',
+        diet: 'Carnivore (fish, squid)',
+        img: 'images/dolphin.jpg',
+        description: 'Highly intelligent marine mammals known for playful behavior and echolocation.'
+      },
+      {
+        id: 'shark',
+        name: 'Shark',
+        scientific: 'Selachimorpha',
+        category: 'aquatic',
+        habitat: 'Oceans',
+        diet: 'Carnivore',
+        img: 'images/shark.jpg',
+        description: 'Diverse group of fishes; apex predators in many marine ecosystems.'
+      },
+      {
+        id: 'snake',
+        name: 'Snake',
+        scientific: 'Serpentes',
+        category: 'reptile',
+        habitat: 'Forests, deserts, wetlands',
+        diet: 'Carnivore',
+        img: 'images/snake.jpg',
+        description: 'Limbless reptiles that use slithering locomotion; many species are venomous.'
+      },
+      {
+        id: 'crocodile',
+        name: 'Crocodile',
+        scientific: 'Crocodylinae',
+        category: 'reptile',
+        habitat: 'Rivers, lakes, wetlands',
+        diet: 'Carnivore',
+        img: 'images/crocodile.jpg',
+        description: 'Semi-aquatic predators with strong jaws and thick armored skin.'
+      }
+    ];
+
+    const grid = document.getElementById('speciesGrid');
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const resetBtn = document.getElementById('resetBtn');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const modalClose = document.getElementById('modalClose');
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    function createCard(s){
+      const el = document.createElement('article');
+      el.className = 'card';
+      el.dataset.category = s.category;
+      el.innerHTML = `
+        <div class="media" role="img" aria-label="${s.name}">
+          ${s.model ? `<model-viewer src="${s.model}" alt="${s.name}" auto-rotate camera-controls style="width:100%; height:100%"></model-viewer>` : `<img src="${s.img}" alt="${s.name}">`}
+        </div>
+        <div class="card-body">
+          <h3>${s.name}</h3>
+          <div class="meta">${s.scientific}</div>
+          <div class="meta" style="font-size:13px">${s.habitat}</div>
+          <div class="tags"><span class="tag">${s.category}</span><span class="tag">${s.diet}</span></div>
+          <div class="actions">
+            <button class="link-btn" data-id="${s.id}" aria-haspopup="dialog">View details</button>
+            <a class="link-btn" href="#" onclick="event.preventDefault(); alert('More resources coming soon — you can link to external pages here.');">Resources</a>
+          </div>
+        </div>
+      `;
+      // add event
+      el.querySelector('[data-id]')?.addEventListener('click', ()=>openModal(s));
+      return el;
+    }
+
+    function render(list){
+      grid.innerHTML = '';
+      if(!list.length){
+        grid.innerHTML = `<div style="grid-column:1/-1; padding:36px; text-align:center; color:var(--muted)">No species match your search.</div>`;
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      list.forEach(s=> fragment.appendChild(createCard(s)));
+      grid.appendChild(fragment);
+    }
+
+    // Filtering logic
+    function filterSpecies(){
+      const q = searchInput.value.trim().toLowerCase();
+      const cat = categoryFilter.value;
+      let res = species.filter(s=>{
+        const matchCat = cat === 'all' ? true : s.category === cat;
+        const matchQuery = q === '' ? true : (
+          s.name.toLowerCase().includes(q) ||
+          (s.scientific && s.scientific.toLowerCase().includes(q)) ||
+          (s.habitat && s.habitat.toLowerCase().includes(q)) ||
+          (s.diet && s.diet.toLowerCase().includes(q))
+        );
+        return matchCat && matchQuery;
+      });
+      render(res);
+    }
+
+    // Modal: show details
+    const modalTitle = document.getElementById('modalTitle');
+    const modalScientific = document.getElementById('modalScientific');
+    const modalHabitat = document.getElementById('modalHabitat');
+    const modalDiet = document.getElementById('modalDiet');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalTags = document.getElementById('modalTags');
+    const modalMedia = document.getElementById('modalMedia');
+
+    function openModal(s){
+      modalTitle.textContent = s.name;
+      modalScientific.textContent = s.scientific ? s.scientific : '';
+      modalHabitat.innerHTML = `<strong>Habitat:</strong> ${s.habitat || '—'}`;
+      modalDiet.innerHTML = `<strong>Diet:</strong> ${s.diet || '—'}`;
+      modalDesc.textContent = s.description || '';
+      modalTags.textContent = `${s.category} • ${s.diet}`;
+      // media
+      modalMedia.innerHTML = '';
+      if(s.model){
+        const mv = document.createElement('model-viewer');
+        mv.setAttribute('src', s.model);
+        mv.setAttribute('alt', s.name);
+        mv.setAttribute('camera-controls', '');
+        mv.setAttribute('auto-rotate', '');
+        mv.style.width = '100%';
+        mv.style.borderRadius = '10px';
+        modalMedia.appendChild(mv);
+      } else if(s.img){
+        const img = document.createElement('img');
+        img.src = s.img;
+        img.alt = s.name;
+        modalMedia.appendChild(img);
+      } else {
+        modalMedia.textContent = 'No media available';
+      }
+
+      modalBackdrop.style.display = 'flex';
+      modalBackdrop.setAttribute('aria-hidden','false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(){
+      modalBackdrop.style.display = 'none';
+      modalBackdrop.setAttribute('aria-hidden','true');
+      document.body.style.overflow = '';
+    }
+
+    modalClose.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', (e)=> {
+      if(e.target === modalBackdrop) closeModal();
+    });
+
+    // keyboard escape
+    window.addEventListener('keydown', (e)=> { if(e.key === 'Escape') closeModal(); });
+
+    // wire events
+    searchInput.addEventListener('input', debounce(filterSpecies, 200));
+    categoryFilter.addEventListener('change', filterSpecies);
+    resetBtn.addEventListener('click', ()=>{
+      searchInput.value = '';
+      categoryFilter.value = 'all';
+      filterSpecies();
+    });
+
+    // helper: simple debounce
+    function debounce(fn, wait=150){
+      let t;
+      return (...args)=> {
+        clearTimeout(t);
+        t = setTimeout(()=> fn(...args), wait);
+      };
+    }
+
+    // init
+    render(species);
+  </script>
+</body>
+</html>
